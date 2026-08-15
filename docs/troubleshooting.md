@@ -9,6 +9,7 @@ Find your symptom, jump to the fix. After each fix, retry from the app to confir
 | "Relay Unreachable", health check fails | [Relay Unreachable](#relay-unreachable) |
 | Stuck on "Confirm your first share" | [No Pending Shares Appear](#no-pending-shares-appear) |
 | Subscribed, but no wake-ups arrive | [APNs Not Registered](#apns-not-registered) |
+| Subscribed, but per-device provisioning says "Failed" | [APNs Not Registered](#apns-not-registered) |
 | Ran the server installer, app still says "Not active yet" | [Relay quick triage](#relay-quick-triage) |
 | Vault list empty, "folder not connected" | [Obsidian Folder Not Found](#obsidian-folder-not-found) |
 | "Vault Folder Was Moved or Deleted" on a vault | [Vault Folder Was Moved or Deleted](#vault-folder-was-moved-or-deleted) |
@@ -64,11 +65,11 @@ $env:RELAY_URL = 'https://relay.vaultsync.eu'
 & "$env:LOCALAPPDATA\VaultSync\vaultsync-notify.exe" --doctor
 ```
 
-How to read `--doctor`: a relay rate-limit (HTTP 429) counts as **success** — it proves the trigger endpoint is reachable (the relay allows ~10 triggers/min/device). An inactive subscription prints a `WARN` for the trigger check (`WARN Relay trigger endpoint response sanity`, followed by `relay reports no active subscription for this device — …`) **without failing** — that state is fixed in the app (subscribe / re-provision), not on the server. Every install also ships `vaultsync-notify --healthcheck`: the setup checks minus the trigger probe and minus the peer-state diagnostics below, silent, exit-code only — this is what the Docker `HEALTHCHECK` runs, and it works for scripts and monitoring on every flavor.
+How to read `--doctor`: a relay rate-limit (HTTP 429) counts as **success** — it proves the trigger endpoint is reachable (the relay allows ~10 triggers/min/device). An inactive subscription prints a `WARN` for the trigger check (`WARN Relay trigger endpoint response sanity`, followed by `relay reports no active subscription for this device — …`) **without failing** — the helper reached the relay, but app↔relay provisioning is not active; reinstalling or changing the helper cannot repair that state. Every install also ships `vaultsync-notify --healthcheck`: the setup checks minus the trigger probe and minus the peer-state diagnostics below, silent, exit-code only — this is what the Docker `HEALTHCHECK` runs, and it works for scripts and monitoring on every flavor.
 
 The doctor also reports **peer state**, always as a `WARN` (the check name, then an indented reason) and never as a failure — a device that is off or away is everyday life, not a setup error, so the exit code stays 0. `WARN Syncthing remote device connected` means no remote device is connected right now (or none is paired at all): open the Syncthing Web UI and check the device is added, resumed, and online on both sides. `WARN Syncthing folders shared with connected devices` means devices are connected but no folder is shared with any of them, so changes on the server cannot reach them: open the Syncthing Web UI, folder → Edit → Sharing, tick the device, then accept the share on the other device. If the doctor cannot read peer state at all (an older Syncthing, a momentary API error), the same checks print a `could not evaluate` WARN instead of failing. `--healthcheck` deliberately skips peer state — a legitimately offline peer never makes the container unhealthy.
 
-In the app: **Cloud Relay** tab → **Relay health & diagnostics** → **Check Relay Status**. A green health check means the relay is *reachable*; only an updated **Last Trigger Received** proves wake-ups are actually delivered.
+In the app: **Cloud Relay** tab → **Relay health & diagnostics** → **Check Relay Status**. A green health check means the relay is *reachable*. **Last signal observed by Relay** confirms that the relay accepted a server signal; only **Last Wake-up Received** confirms delivery to this iPhone.
 
 ---
 
@@ -116,7 +117,7 @@ In the app: **Cloud Relay** tab → **Relay health & diagnostics** → **Check R
    curl -fsSL https://relay.vaultsync.eu/api/v1/health
    ```
 5. In the app: **Cloud Relay** tab → **Relay health & diagnostics** → **Check Relay Status**.
-6. Once reachable, trigger a file change and confirm **Last Trigger Received** updates — that's the proof wake-ups are delivered, not just that the relay is up.
+6. Once reachable, trigger a file change and confirm **Last signal observed by Relay** updates, then check **Last Wake-up Received** separately for delivery to this iPhone.
 
 ---
 
@@ -137,14 +138,29 @@ In the app: **Cloud Relay** tab → **Relay health & diagnostics** → **Check R
 
 Silent push wake-ups use a background push that **does not need notification permission** — but they do need a valid APNs token and a provisioned device.
 
-**Looks like:** diagnostics show the APNs token missing or registration failed; you're subscribed but wake-ups never arrive.
+**Looks like:** diagnostics show the APNs token missing or registration failed;
+you're subscribed but wake-ups never arrive; or per-device provisioning says
+**Failed** while the helper reports an inactive subscription.
 
 **Fix:**
-0. On the server, run `--doctor` (see the quick-triage block above). A `WARN` on the trigger check saying `relay reports no active subscription for this device` means the server side is healthy and the problem is app-side: subscription or provisioning — continue below.
-1. Open **Cloud Relay** tab → **Relay health & diagnostics**.
-2. Tap **Retry APNs Registration** and confirm an **APNs Token** appears.
-3. Tap **Retry Provisioning** to rebind the token to your device IDs (shown while subscribed).
-4. Trigger a file change on your server and verify **Last Trigger Received** updates.
+1. On the server, run `--doctor` (see the quick-triage block above). A `WARN`
+   on the trigger check saying `relay reports no active subscription for this
+   device` means the helper reached the relay and the problem is in app↔relay
+   provisioning — not on your homeserver. Reinstalling or changing the helper
+   cannot repair this state.
+2. Record **Settings → About → VaultSync version & build**, then record the
+   hosted relay version without sending any private data:
+   ```bash
+   curl -fsSL https://relay.vaultsync.eu/api/v1/health
+   ```
+   Install any available VaultSync App Store update before retrying. If the app
+   is already current but provisioning still fails, include both versions in a
+   bug report: a relay/app provisioning-contract mismatch needs an app or hosted
+   relay fix, not a homeserver change.
+3. Open **Cloud Relay** tab → **Relay health & diagnostics**.
+4. Tap **Retry APNs Registration** and confirm an **APNs Token** appears.
+5. Tap **Retry Provisioning** to rebind the token to your device IDs (shown while subscribed).
+6. Trigger a file change on your server and verify **Last signal observed by Relay** updates, then check **Last Wake-up Received** separately.
 
 ---
 
@@ -197,7 +213,7 @@ iOS controls background time and may delay or skip it. Cloud Relay makes `server
 1. Open VaultSync and run a manual rescan.
 2. Clear any **Sync Issues** first (folder errors, pending shares, disconnected peers).
 3. Reconnect the Obsidian folder if access warnings appear.
-4. For relay users, confirm `vaultsync-notify --doctor` is green and **Last Trigger Received** is recent.
+4. For relay users, confirm `vaultsync-notify --doctor` is green and **Last Wake-up Received** is recent.
 5. Re-check the **Last sync** timestamp after the next background window.
 
 > For `iPhone → server`, open VaultSync and let it sync in the foreground. iOS background time is system-controlled and not guaranteed. A one-time Shortcuts automation can do the opening for you every time you leave Obsidian — see [instant-upload.md](instant-upload.md).

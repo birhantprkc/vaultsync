@@ -1,12 +1,12 @@
 # VaultSync Cloud Relay — Specification
 
-> **Status:** Cloud Relay 1.3.0 and the matching app support are implemented and locally verified, but the Relay production rollout and VaultSync 2.0 app release are still pending. Once deployed, Relay 1.3 provisioning requires a verified StoreKit signed transaction and gives exact pre-existing legacy registrations a bounded compatibility window through October 31, 2026. Helper publication state is determined only by the newest public `notify-v*` release and its exact manifest; `notify-v1.8.0` remains the fixed rollback baseline for helper 2.0.2. Even a published capable helper provides no app upload, download, or correlated-roundtrip evidence until the separate app milestones succeed. A Relay-observed signal proves only accepted Relay processing: not helper identity, APNs delivery, background start, local data progress, upload, download, or a roundtrip. Existing Relay v1 provisioning, trigger, and push contracts remain unchanged. This document is the protocol and architecture reference for the relay, the `vaultsync-notify` sidecar, and the iOS client.
+> **Status:** Cloud Relay 1.3.2 and VaultSync 2.0.1 are in production, and helper 2.0.2 is published. Relay 1.3 provisioning requires a verified StoreKit signed transaction and gives exact pre-existing legacy registrations a bounded compatibility window through October 31, 2026. Helper publication state is determined only by the newest public `notify-v*` release and its exact manifest; `notify-v1.8.0` remains the fixed rollback baseline for helper 2.0.2. A Relay-observed signal proves only accepted Relay processing: not helper identity, APNs delivery, background start, local data progress, upload, download, or a roundtrip. Existing Relay v1 provisioning, trigger, and push contracts remain unchanged. This document is the protocol and architecture reference for the relay, the `vaultsync-notify` sidecar, and the iOS client.
 
 ## Overview
 
 Push-notification service that forwards Syncthing file-change events to iOS devices via APNs. It solves the core iOS limitation — no real-time background sync — by waking the app on demand instead of polling.
 
-In the app code on `main`, the **Cloud Relay** tab → **Relay health & diagnostics** keeps backend reachability, per-homeserver Relay observation, and wake-ups received locally on this iPhone as separate evidence. That app support has not shipped as VaultSync 2.0, and none of those fields alone proves APNs delivery, background execution, or synchronization.
+The **Cloud Relay** tab → **Relay health & diagnostics** keeps backend reachability, per-homeserver Relay observation, and wake-ups received locally on this iPhone as separate evidence. That support shipped in VaultSync 2.0.0, and none of those fields alone proves APNs delivery, background execution, or synchronization.
 
 ---
 
@@ -216,7 +216,7 @@ No authentication required.
 // Response 200
 {
   "status": "ok",
-  "version": "1.3.0"
+  "version": "1.3.2"
 }
 ```
 
@@ -295,7 +295,7 @@ The container reads its own Syncthing Device ID automatically from `/rest/system
 
 ## iOS Integration
 
-The iOS client code on `main` implements the relay flow described below; see `AppDelegate.swift`, `RelayService.swift`, and `SubscriptionManager.swift` for detail. Its observation/status support has not yet shipped as VaultSync 2.0.
+The released iOS client implements the relay flow described below; see `AppDelegate.swift`, `RelayService.swift`, and `SubscriptionManager.swift` for detail. Its observation/status support shipped in VaultSync 2.0.0.
 
 - **APNs registration** — registers for remote notifications at launch and converts the device token to a hex string (`AppDelegate`).
 - **Provisioning** — the app POSTs each known homeserver Device ID, the APNs token, and a currently locally verified signed transaction (JWS) to `/api/v1/provision`. It does this after purchase, Restore Purchases, renewal, APNs-token rotation, and once after updating an existing installation. Without verified signed evidence it sends no request and preserves the existing registration.

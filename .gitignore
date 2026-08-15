@@ -11,6 +11,7 @@ ios/VaultSyncWidget/Info.plist
 
 # Xcode
 *.xcuserdata
+*.xcresult/
 DerivedData/
 build/
 
