@@ -43,7 +43,7 @@ updates:
     cooldown:
       default-days: 3
 
-  # notify relay container base images (golang:1.26-alpine, alpine:3.23).
+  # notify relay container base image (golang:1.26-alpine).
   # Dependabot will also propose @sha256 digest pins for these.
   # NOT auto-merged: docker.yml (build + multi-arch + Trivy scan) runs only on
   # push/tag, never on pull_request, so a base-image bump PR is never actually

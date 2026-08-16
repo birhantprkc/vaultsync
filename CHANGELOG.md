@@ -4,6 +4,12 @@ All notable changes to VaultSync are documented here.
 
 ---
 
+## [Unreleased]
+
+### Security
+
+- **Updated the Go runtime used by the sync engine and self-hosted helper** — Go 1.26.5 → 1.26.6 incorporates the latest standard-library security fixes. Future iOS archives and helper releases are built with the patched runtime.
+
 ## [2.0.1] — 2026-07-22
 
 ### Fixed
