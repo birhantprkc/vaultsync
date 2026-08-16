@@ -150,6 +150,8 @@ jobs:
 
       - name: Prove upload and response transfer through two isolated ephemeral instances
         run: |
+          # The image uses GOTOOLCHAIN=local, so its Go patch version must stay
+          # aligned with notify/go.mod or this test fails before it can start.
           docker run --rm --network none --read-only --cap-drop ALL \
             --security-opt no-new-privileges \
             --tmpfs /tmp:rw,exec,nosuid,nodev,mode=1777 \
@@ -160,7 +162,7 @@ jobs:
             -e GOCACHE=/tmp/go-cache \
             -e GOMODCACHE=/opt/vaultsync-m5-notify-mod \
             -e VAULTSYNC_M5_SYNCTHING_BIN=/opt/vaultsync-m5-syncthing \
-            golang@sha256:079e59808d2d252516e27e3f3a9c003740dee7f75e55aa71528766d52bcfc16a \
+            golang:1.26@sha256:26326682769ca980f8f1d3b1f52be2dd1c1d25270e3de3fe0c97d6bb65df3556 \
             go test -tags diagnostics_m5_syncthing_e2e \
               -run '^TestDiagnostics(Upload|Download)ThroughTwoEphemeralSyncthingInstances$' \
               -count=1 -v
